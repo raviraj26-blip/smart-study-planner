@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Study Planner</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f6fb;color:#202942}
+header{background:#263b80;color:white;padding:24px 7%}
+header h1{margin:0 0 8px}
+header p{margin:0;color:#dbe4ff}
+main{max-width:1100px;margin:28px auto;padding:0 18px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px}
+.card{background:white;padding:20px;border-radius:14px;box-shadow:0 3px 15px #18264b0d;margin-bottom:18px}
+.stat{font-size:28px;font-weight:bold;color:#344fa1;margin-top:10px}
+h2{font-size:19px}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+input,select,button{padding:12px;border:1px solid #d5dbea;border-radius:8px;font-size:14px}
+button{background:#344fa1;color:white;border:0;cursor:pointer;font-weight:bold}
+button:hover{background:#263b80}
+.task{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #eee}
+.task:last-child{border-bottom:0}
+.task small{display:block;color:#69748b;margin-top:5px}
+.task button{padding:8px 10px;margin:3px}
+.completed{text-decoration:line-through;color:#8991a3}
+.tag{display:inline-block;background:#e9edff;color:#344fa1;padding:5px 8px;border-radius:20px;font-size:12px}
+.empty{color:#7a8397;padding:15px 0}
+.progress{height:9px;background:#e6e9f2;border-radius:10px;overflow:hidden}
+#bar{height:100%;width:0;background:#4aaf83;transition:width .2s}
+footer{text-align:center;color:#798299;padding:20px}
+@media(max-width:500px){header{padding:22px 18px}.task{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<header>
+<h1>📚 Smart Study Planner</h1>
+<p>Plan smarter. Study better. Achieve your goals.</p>
+</header>
+<main>
+<section class="stats">
+<div class="card">Total Tasks<div class="stat" id="total">0</div></div>
+<div class="card">Completed<div class="stat" id="completed">0</div></div>
+<div class="card">Pending<div class="stat" id="pending">0</div></div>
+<div class="card">Progress<div class="stat" id="percent">0%</div></div>
+</section>
+
+<section class="card">
+<h2>➕ Add a Study Task</h2>
+<form id="taskForm">
+<input id="subject" placeholder="Subject (e.g. Python)" required>
+<input id="taskName" placeholder="Task (e.g. Revise loops)" required>
+<input id="deadline" type="date" required>
+<select id="priority">
+<option value="High">High Priority</option>
+<option value="Medium" selected>Medium Priority</option>
+<option value="Low">Low Priority</option>
+</select>
+<button type="submit">Add Task</button>
+</form>
+</section>
+
+<section class="card">
+<h2>📋 My Study Tasks</h2>
+<div class="progress"><div id="bar"></div></div>
+<p id="progressText">Your study journey starts here.</p>
+<select id="filter" aria-label="Filter tasks">
+<option value="All">All Tasks</option>
+<option value="Pending">Pending Only</option>
+<option value="Completed">Completed Only</option>
+</select>
+<div id="taskList"></div>
+</section>
+
+<section class="card">
+<h2>🤖 Smart Study Tips</h2>
+<p id="tip">Add a task to get started with your study plan.</p>
+<button type="button" id="tipButton">Get a Study Tip</button>
+</section>
+</main>
+<footer>Smart Study Planner | AI-Assisted Web Application Project</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+let tasks = [];
+try { tasks = JSON.parse(localStorage.getItem("studyPlannerTasks") || "[]"); }
+catch { tasks = []; }
+
+function save() {
+  localStorage.setItem("studyPlannerTasks", JSON.stringify(tasks));
+  render();
+}
+
+function render() {
+  const total = tasks.length;
+  const done = tasks.filter(t => t.done).length;
+  const percent = total ? Math.round(done / total * 100) : 0;
+  $("total").textContent = total;
+  $("completed").textContent = done;
+  $("pending").textContent = total - done;
+  $("percent").textContent = percent + "%";
+  $("bar").style.width = percent + "%";
+  $("progressText").textContent = total
+    ? percent + "% completed. Keep going!"
+    : "Your study journey starts here.";
+
+  const filter = $("filter").value;
+  const visible = tasks.filter(t =>
+    filter === "All" || (filter === "Completed" ? t.done : !t.done)
+  );
+
+  $("taskList").innerHTML = "";
+  if (!visible.length) {
+    $("taskList").innerHTML = '<p class="empty">No tasks here yet. Add your first study task above!</p>';
+    return;
+  }
+
+  visible.sort((a,b) => a.deadline.localeCompare(b.deadline));
+  visible.forEach(t => {
+    const item = document.createElement("div");
+    item.className = "task";
+    const info = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = t.name;
+    if (t.done) title.className = "completed";
+    const details = document.createElement("small");
+    details.textContent = t.subject + " · Due: " + t.deadline + " · " + t.priority + " priority";
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = t.done ? "Completed" : "Pending";
+    info.append(title, details, document.createElement("br"), tag);
+
+    const actions = document.createElement("div");
+    const toggle = document.createElement("button");
+    toggle.textContent = t.done ? "Undo" : "Complete";
+    toggle.type = "button";
+    toggle.onclick = () => { t.done = !t.done; save(); };
+
+    const remove = document.createElement("button");
+    remove.textContent = "Delete";
+    remove.type = "button";
+    remove.style.background = "#b83d4b";
+    remove.onclick = () => {
+      if (confirm("Delete this study task?")) {
+        tasks = tasks.filter(x => x.id !== t.id);
+        save();
+      }
+    };
+    actions.append(toggle, remove);
+    item.append(info, actions);
+    $("taskList").append(item);
+  });
+}
+
+$("taskForm").addEventListener("submit", e => {
+  e.preventDefault();
+  tasks.push({
+    id: Date.now(),
+    subject: $("subject").value.trim(),
+    name: $("taskName").value.trim(),
+    deadline: $("deadline").value,
+    priority: $("priority").value,
+    done: false
+  });
+  save();
+  $("taskForm").reset();
+  $("priority").value = "Medium";
+});
+
+$("filter").addEventListener("change", render);
+
+const tips = [
+  "Try studying for 25 minutes, then take a 5-minute break.",
+  "Start with your most important or nearest-deadline task.",
+  "Test yourself with questions instead of only rereading notes.",
+  "Break large assignments into small, manageable tasks.",
+  "Review what you learned at the end of each study session."
+];
+$("tipButton").addEventListener("click", () => {
+  $("tip").textContent = tips[Math.floor(Math.random() * tips.length)];
+});
+
+render();
+</script>
+</body>
+</html>
